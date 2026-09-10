@@ -1,0 +1,18 @@
+{
+  "name": "dclog",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "db:generate": "npm run generate -w @dclog/db",
+    "db:migrate": "npm run migrate -w @dclog/db",
+    "db:deploy": "npm run deploy -w @dclog/db",
+    "db:studio": "npm run studio -w @dclog/db",
+    "bot:dev": "npm run start -w @dclog/bot",
+    "bot:deploy-commands": "npm run deploy-commands -w @dclog/bot",
+    "web:dev": "npm run dev -w @dclog/web",
+    "web:build": "npm run build -w @dclog/web",
+    "web:start": "npm run start -w @dclog/web"
+  }
+}

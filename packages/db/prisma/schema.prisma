@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Guild {
+  id        String   @id
+  name      String?
+  createdAt DateTime @default(now())
+
+  logChannels LogChannel[]
+}
+
+model LogChannel {
+  id                      String   @id
+  guildId                 String
+  name                    String?
+  enabled                 Boolean  @default(true)
+  lastBackfilledMessageId String?
+  backfillComplete        Boolean  @default(false)
+  createdAt               DateTime @default(now())
+
+  guild      Guild      @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  logEntries LogEntry[]
+
+  @@index([guildId])
+}
+
+model LogEntry {
+  id          BigInt   @id @default(autoincrement())
+  messageId   String
+  embedIndex  Int      @default(0)
+  channelId   String
+  guildId     String
+  webhookName String?
+  title       String?  @db.VarChar(512)
+  description String?  @db.Text
+  color       Int?
+  timestamp   DateTime
+  rawJson     Json
+  createdAt   DateTime @default(now())
+
+  channel     LogChannel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  fields      LogField[]
+  identifiers LogIdentifier[]
+
+  @@unique([messageId, embedIndex])
+  @@index([channelId, timestamp])
+  @@index([guildId, timestamp])
+}
+
+model LogField {
+  id         BigInt  @id @default(autoincrement())
+  logEntryId BigInt
+  name       String  @db.VarChar(256)
+  value      String  @db.Text
+  inline     Boolean @default(false)
+
+  logEntry LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+
+  @@index([logEntryId])
+}
+
+enum IdentifierType {
+  DISCORD
+  STEAM
+  LICENSE
+  LICENSE2
+  XBL
+  LIVE
+  FIVEM
+  IP
+  CITIZENID
+  SERVER_ID
+  CHARACTER_NAME
+}
+
+model LogIdentifier {
+  id         BigInt         @id @default(autoincrement())
+  logEntryId BigInt
+  guildId    String
+  type       IdentifierType
+  value      String         @db.VarChar(191)
+
+  logEntry LogEntry @relation(fields: [logEntryId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, value])
+  @@index([guildId, type, value])
+  @@index([logEntryId])
+}

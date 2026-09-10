@@ -1,0 +1,38 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f1115;
+  color: #e4e6eb;
+}
+
+input,
+button {
+  font-family: inherit;
+}
+
+button {
+  background: #5865f2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #3a3d45;
+  cursor: not-allowed;
+}
+
+input {
+  background: #1a1d23;
+  border: 1px solid #2f333d;
+  border-radius: 6px;
+  color: #e4e6eb;
+}
+
+a {
+  color: #7289da;
+}

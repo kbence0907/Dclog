@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.local
+.next/
+packages/web/.next/
+npm-debug.log*
