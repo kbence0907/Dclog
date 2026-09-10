@@ -103,8 +103,15 @@ A szerveren belül:
 /logchannel add #ban-logs
 /logchannel add #kick-logs
 ...
-/backfill start #ban-logs
+/backfill startall
 ```
+
+A `/backfill startall` az összes eddig hozzáadott, még be nem gyűjtött log
+csatornát sorban, egyesével feldolgozza a háttérben — ezzel biztosítható,
+hogy a bot bekapcsolása előtt keletkezett, meglévő logok is bekerüljenek az
+adatbázisba, nem csak az ezután érkezők. Egy adott csatornát külön is
+indíthatsz: `/backfill start #csatorna`, és `/backfill status #csatorna`-val
+ellenőrizheted az állapotát (vagy `/logchannel list`-tel mindet egyszerre).
 
 A `/backfill` a háttérben fut és folyamatosan küld státuszüzenetet abba a
 csatornába, ahonnan indítottad — nagy (100 000+ üzenetes) csatornáknál ez

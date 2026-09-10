@@ -10,6 +10,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Guards against starting two overlapping backfill loops on the same channel
+// (e.g. someone running /backfill start twice, or start + startall together),
+// which would race on `lastBackfilledMessageId` and duplicate work.
+const runningChannels = new Set();
+
 /**
  * Walks a channel's full history backwards from `lastBackfilledMessageId`
  * (or from "now" on first run), saving every log embed it finds. Runs in the
@@ -18,52 +23,88 @@ function sleep(ms) {
  * messages and take well over Discord's 15-minute interaction token window.
  */
 async function runBackfill(client, channelId, statusChannelId) {
-  const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (!channel) return;
-
-  const record = await prisma.logChannel.findUnique({ where: { id: channelId } });
-  if (!record) return;
-
-  let before = record.lastBackfilledMessageId || undefined;
-  let totalMessages = 0;
-  let totalEntries = 0;
+  if (runningChannels.has(channelId)) return { skipped: true, totalMessages: 0, totalEntries: 0 };
+  runningChannels.add(channelId);
 
   const reportProgress = async (text) => {
     const statusChannel = await client.channels.fetch(statusChannelId).catch(() => null);
     await statusChannel?.send(text).catch(() => {});
   };
 
-  while (true) {
-    const batch = await channel.messages.fetch({ limit: BATCH_SIZE, before }).catch((err) => {
-      console.error('[backfill] fetch failed:', err);
-      return null;
-    });
-    if (!batch || batch.size === 0) break;
+  try {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel) return { skipped: true, totalMessages: 0, totalEntries: 0 };
 
-    for (const message of batch.values()) {
-      try {
-        totalEntries += await saveMessageLogs(message, record);
-      } catch (err) {
-        console.error(`[backfill] failed on message ${message.id}:`, err);
+    const record = await prisma.logChannel.findUnique({ where: { id: channelId } });
+    if (!record) return { skipped: true, totalMessages: 0, totalEntries: 0 };
+
+    let before = record.lastBackfilledMessageId || undefined;
+    let totalMessages = 0;
+    let totalEntries = 0;
+
+    while (true) {
+      const batch = await channel.messages.fetch({ limit: BATCH_SIZE, before }).catch((err) => {
+        console.error('[backfill] fetch failed:', err);
+        return null;
+      });
+      if (!batch || batch.size === 0) break;
+
+      for (const message of batch.values()) {
+        try {
+          totalEntries += await saveMessageLogs(message, record);
+        } catch (err) {
+          console.error(`[backfill] failed on message ${message.id}:`, err);
+        }
+        totalMessages++;
       }
-      totalMessages++;
+
+      before = batch.last().id;
+      await prisma.logChannel.update({ where: { id: channelId }, data: { lastBackfilledMessageId: before } });
+
+      if (totalMessages % PROGRESS_EVERY === 0) {
+        await reportProgress(
+          `⏳ Backfill folyamatban <#${channelId}>: ${totalMessages} üzenet feldolgozva (${totalEntries} log bejegyzés).`
+        );
+      }
+
+      if (batch.size < BATCH_SIZE) break;
+      await sleep(DELAY_MS);
     }
 
-    before = batch.last().id;
-    await prisma.logChannel.update({ where: { id: channelId }, data: { lastBackfilledMessageId: before } });
+    await prisma.logChannel.update({ where: { id: channelId }, data: { backfillComplete: true } });
+    await reportProgress(`✅ Backfill kész <#${channelId}>: összesen ${totalMessages} üzenet, ${totalEntries} log bejegyzés elmentve.`);
+    return { skipped: false, totalMessages, totalEntries };
+  } finally {
+    runningChannels.delete(channelId);
+  }
+}
 
-    if (totalMessages % PROGRESS_EVERY === 0) {
-      await reportProgress(
-        `⏳ Backfill folyamatban <#${channelId}>: ${totalMessages} üzenet feldolgozva (${totalEntries} log bejegyzés).`
-      );
-    }
+/**
+ * Runs backfill sequentially over every log channel of a guild that isn't
+ * marked complete yet — the convenience path for "just get everything we
+ * already have into the system" across many log channels at once.
+ */
+async function runBackfillAll(client, guildId, statusChannelId) {
+  const channels = await prisma.logChannel.findMany({
+    where: { guildId, enabled: true, backfillComplete: false },
+  });
 
-    if (batch.size < BATCH_SIZE) break;
-    await sleep(DELAY_MS);
+  if (!channels.length) {
+    const statusChannel = await client.channels.fetch(statusChannelId).catch(() => null);
+    await statusChannel?.send('ℹ️ Nincs olyan log csatorna, aminél a backfill még hátra lenne.').catch(() => {});
+    return;
   }
 
-  await prisma.logChannel.update({ where: { id: channelId }, data: { backfillComplete: true } });
-  await reportProgress(`✅ Backfill kész <#${channelId}>: összesen ${totalMessages} üzenet, ${totalEntries} log bejegyzés elmentve.`);
+  let doneCount = 0;
+  for (const ch of channels) {
+    const result = await runBackfill(client, ch.id, statusChannelId);
+    if (!result.skipped) doneCount++;
+  }
+
+  const statusChannel = await client.channels.fetch(statusChannelId).catch(() => null);
+  await statusChannel
+    ?.send(`🏁 Összes backfill kész: ${doneCount}/${channels.length} log csatorna feldolgozva.`)
+    .catch(() => {});
 }
 
 module.exports = {
@@ -74,10 +115,13 @@ module.exports = {
     .addSubcommand((sc) =>
       sc
         .setName('start')
-        .setDescription('Backfill indítása (vagy folytatása, ha félbeszakadt)')
+        .setDescription('Backfill indítása (vagy folytatása, ha félbeszakadt) egy csatornán')
         .addChannelOption((o) =>
           o.setName('channel').setDescription('Log csatorna').addChannelTypes(ChannelType.GuildText).setRequired(true)
         )
+    )
+    .addSubcommand((sc) =>
+      sc.setName('startall').setDescription('Backfill indítása az összes még hátralévő log csatornán')
     )
     .addSubcommand((sc) =>
       sc
@@ -90,8 +134,32 @@ module.exports = {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
-    const channel = interaction.options.getChannel('channel');
 
+    if (sub === 'startall') {
+      const channels = await prisma.logChannel.findMany({
+        where: { guildId: interaction.guildId, enabled: true, backfillComplete: false },
+      });
+      if (!channels.length) {
+        await interaction.reply({
+          content: 'ℹ️ Minden regisztrált log csatorna backfillje már kész, vagy még nincs egy csatorna sem beállítva (`/logchannel add`).',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      await interaction.reply({
+        content: `🚀 Backfill elindítva a háttérben **${channels.length}** log csatornán (${channels
+          .map((c) => `<#${c.id}>`)
+          .join(', ')}), egyesével, sorban. Nagy csatornáknál órákig is eltarthat, státuszt ide fogok küldeni.`,
+        ephemeral: true,
+      });
+      runBackfillAll(interaction.client, interaction.guildId, interaction.channelId).catch((err) => {
+        console.error('[backfill] fatal error:', err);
+      });
+      return;
+    }
+
+    const channel = interaction.options.getChannel('channel');
     const record = await prisma.logChannel.findUnique({ where: { id: channel.id } });
     if (!record) {
       await interaction.reply({
@@ -102,6 +170,13 @@ module.exports = {
     }
 
     if (sub === 'start') {
+      if (record.backfillComplete) {
+        await interaction.reply({
+          content: `ℹ️ **#${channel.name}** backfillje már kész. Ha mégis van új anyag, a bot élőben úgyis gyűjti a bejövő logokat.`,
+          ephemeral: true,
+        });
+        return;
+      }
       await interaction.reply({
         content: `🚀 Backfill elindítva **#${channel.name}** csatornán a háttérben. Sok üzenetnél ez akár órákig is eltarthat, státuszt ide fogok küldeni.`,
         ephemeral: true,
