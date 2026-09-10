@@ -97,6 +97,14 @@ npm run bot:deploy-commands
 npm run bot:dev
 ```
 
+Ha a hosztingpaneled csak rövid (pl. max 16 karakteres) fájlnevet fogad el
+indítófájlnak, a `packages/bot/src/index.js` nem fér bele — használd
+helyette a gyökérben lévő `bot.js`-t, ami csak áthívja a valódit:
+
+```
+node bot.js
+```
+
 A szerveren belül:
 
 ```
