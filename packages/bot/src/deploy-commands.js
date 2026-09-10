@@ -6,20 +6,22 @@ require('./env');
 const { REST, Routes } = require('discord.js');
 const { commandModules } = require('./commands');
 
-const commands = commandModules.map((cmd) => cmd.data.toJSON());
-
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    const route = process.env.DISCORD_GUILD_ID
-      ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
-      : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
+    const applicationId =
+      process.env.DISCORD_CLIENT_ID || (await rest.get(Routes.oauth2CurrentApplication())).id;
+    const body = commandModules.map((cmd) => cmd.data.toJSON());
+    const guildId = process.env.DISCORD_GUILD_ID;
 
-    await rest.put(route, { body: commands });
-    console.log(`✅ ${commands.length} slash parancs regisztrálva.`);
+    await rest.put(
+      guildId ? Routes.applicationGuildCommands(applicationId, guildId) : Routes.applicationCommands(applicationId),
+      { body }
+    );
+    console.log(`✅ ${body.length} slash parancs regisztrálva${guildId ? ` a(z) ${guildId} szerveren` : ' globálisan'}.`);
   } catch (err) {
-    console.error(err);
+    console.error('❌ Sikertelen:', err.message);
     process.exit(1);
   }
 })();

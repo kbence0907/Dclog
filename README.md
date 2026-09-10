@@ -171,6 +171,37 @@ bot.js`) telepítésen, a weboldal nem buildeli újra magát automatikusan —
 töröld a `packages/web/.next` mappát és indítsd újra, hogy a következő
 indítás lebuildelje az új verziót.
 
+## Hibakeresés
+
+**Nem látom a slash parancsokat Discordon.**
+- A bot induláskor kiírja a konzolra, hogy sikerült-e a regisztráció, és ha
+  nem, hogy miért. Nézd meg a panel konzolját.
+- Ha nincs beállítva a `DISCORD_GUILD_ID`, a parancsok **globálisan**
+  regisztrálódnak, ami akár 1 órát is igénybe vehet. Állítsd be a szervered
+  ID-jére, akkor azonnal megjelennek.
+- A botot `applications.commands` scope-pal is meg kell hívni, nem elég a
+  `bot` scope. A bot induláskor kiír egy kész meghívó linket a konzolra —
+  nyisd meg azt.
+- A `/logchannel` és `/backfill` parancsok **csak** a "Szerver kezelése"
+  (Manage Server) jogosultsággal rendelkező tagoknak látszanak. A `/lookup`
+  mindenkinek.
+
+**A bot elindul, de nem jelentkezik be ("Discord bejelentkezés sikertelen").**
+- Kapcsold be a Developer Portal → Bot oldalon a **MESSAGE CONTENT INTENT**-et
+  (privilegizált intent, alapból ki van kapcsolva) — enélkül a bot nem tudja
+  olvasni a log üzenetek tartalmát.
+- Ellenőrizd a `DISCORD_TOKEN` értékét (Reset Token után új értéket kapsz).
+
+**"Az adatbázis migráció sikertelen" / a folyamat kilép induláskor.**
+- Rossz vagy hiányzó `DATABASE_URL`, vagy az adatbázis nem érhető el.
+  A pontos Prisma hibaüzenet a konzolon látható közvetlenül a hiba felett.
+
+**A weboldal nem jön fel, vagy elfogy a memória induláskor.**
+- Az első indításnál lefut egy Next.js build, ami memóriaigényes. Kis
+  csomagon ez elszállhat. Ilyenkor állítsd be a `WEB_ENABLED=false`
+  változót: akkor csak a bot fut, a weboldal nélkül.
+- A build és a weboldal hibái **nem** állítják le a botot.
+
 ## Skálázás / további bővítési pontok
 
 - Az adatbázis minden azonosítón (`guildId, type, value`) és log

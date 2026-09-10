@@ -28,7 +28,7 @@ async function saveMessageLogs(message, channelRecord) {
         fields: {
           create: rec.fields.map((f) => ({
             name: (f.name || '').slice(0, 255),
-            value: (f.value || '').slice(0, 60000),
+            value: (f.value || '').slice(0, 4000),
             inline: !!f.inline,
           })),
         },
