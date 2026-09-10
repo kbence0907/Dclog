@@ -1,10 +1,12 @@
+// Optional standalone way to (re-)register slash commands without starting
+// the whole bot. Not required for normal operation — the bot registers its
+// commands automatically on every boot (see index.js) — but handy for a
+// one-off manual refresh from a machine with shell access.
 require('./env');
 const { REST, Routes } = require('discord.js');
-const logchannel = require('./commands/logchannel');
-const backfill = require('./commands/backfill');
-const lookup = require('./commands/lookup');
+const { commandModules } = require('./commands');
 
-const commands = [logchannel.data.toJSON(), backfill.data.toJSON(), lookup.data.toJSON()];
+const commands = commandModules.map((cmd) => cmd.data.toJSON());
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 

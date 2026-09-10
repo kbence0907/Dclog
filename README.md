@@ -84,18 +84,38 @@ rendelkezők léphetnek be a weboldalra), és `NEXTAUTH_SECRET`
 ### 3. Adatbázis
 
 ```bash
-docker compose up -d mysql
+docker compose up -d mysql   # vagy egy saját MySQL/MariaDB szerver
 npm install
-npm run db:migrate     # létrehozza a táblákat
-npm run db:generate    # (a migrate ezt is lefuttatja, de külön is lehet)
 ```
 
-### 4. Slash parancsok regisztrálása és a bot indítása
+A `npm install` automatikusan lefuttatja a `prisma generate`-et is
+(`postinstall` script), a **táblák létrehozása pedig magától megtörténik,
+amikor a bot elindul** — nincs szükség kézi `npm run db:migrate` parancsra.
+Ez olyan hosztingpaneleknél is működik, ahol nem tudsz szabadon parancsokat
+futtatni, csak Start/Stop gombot nyomni: elég, ha helyesen be van állítva a
+`DATABASE_URL`, a bot induláskor magától létrehozza/frissíti a táblákat
+(`prisma migrate deploy`), mielőtt bejelentkezne Discordra.
+
+Neked csak annyi a dolgod, hogy magát az üres adatbázist (`dclog` séma) és
+egy hozzáférő felhasználót létrehozz a MySQL szerveren — a táblákat már nem
+kell.
+
+### 4. A bot indítása
 
 ```bash
-npm run bot:deploy-commands
 npm run bot:dev
 ```
+
+Ennyi. Induláskor a bot magától:
+1. létrehozza/frissíti az adatbázis táblákat (`prisma migrate deploy`),
+2. regisztrálja a slash parancsokat Discordnál,
+3. bejelentkezik.
+
+Nincs szükség külön `npm run bot:deploy-commands` lépésre — az induláskor
+automatikusan megtörténik (akkor is, ha új parancsot adunk hozzá és
+frissíted a kódot). Ez olyan hosztingpaneleknél is elég, ahol csak egy
+Start/Stop gombod van, parancsot kézzel nem tudsz futtatni: csak az `.env`
+változókat kell beállítanod, a többi automatikus.
 
 Ha a hosztingpaneled csak rövid (pl. max 16 karakteres) fájlnevet fogad el
 indítófájlnak, a `packages/bot/src/index.js` nem fér bele — használd
