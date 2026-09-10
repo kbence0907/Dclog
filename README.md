@@ -100,11 +100,16 @@ npm run bot:dev
 A szerveren belül:
 
 ```
-/logchannel add #ban-logs
-/logchannel add #kick-logs
+/logchannel add channel:#ban-logs name:Halál
+/logchannel add channel:#kick-logs name:Kirúgás
 ...
 /backfill startall
 ```
+
+A `name` paraméter opcionális: ha a Discord csatorna neve nem árulja el, mit
+logol (pl. generikus vagy random névvel jött létre), itt adhatsz neki saját
+címkét, amit a `/logchannel list`, a `/lookup` és a weboldal is ezután ez
+alapján jelenít meg. Utólag is módosítható: `/logchannel rename channel:#... name:Új címke`.
 
 A `/backfill startall` az összes eddig hozzáadott, még be nem gyűjtött log
 csatornát sorban, egyesével feldolgozza a háttérben — ezzel biztosítható,

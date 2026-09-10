@@ -18,8 +18,9 @@ function buildResultEmbed(result, query) {
   for (const entry of result.entries) {
     const fieldsText =
       entry.fields.slice(0, 5).map((f) => `**${f.name}:** ${f.value}`).join('\n') || entry.description?.slice(0, 300) || '—';
+    const channelLabel = entry.channel?.name || `#${entry.channelId}`;
     embed.addFields({
-      name: `${entry.title || 'Log'} • <#${entry.channelId}> • <t:${Math.floor(new Date(entry.timestamp).getTime() / 1000)}:R>`,
+      name: `${entry.title || 'Log'} • ${channelLabel} (<#${entry.channelId}>) • <t:${Math.floor(new Date(entry.timestamp).getTime() / 1000)}:R>`,
       value: fieldsText.slice(0, 1024),
     });
   }

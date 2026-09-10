@@ -59,7 +59,7 @@ export default function SearchClient() {
             {result.entries.map((entry) => (
               <article key={entry.id} style={{ border: '1px solid #2f333d', borderRadius: 8, padding: 16, marginBottom: 12 }}>
                 <header style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#9aa0aa' }}>
-                  <span>#{entry.channelId}</span>
+                  <span>{entry.channel?.name || `#${entry.channelId}`}</span>
                   <span>{new Date(entry.timestamp).toLocaleString('hu-HU')}</span>
                 </header>
                 {entry.title && <h4 style={{ margin: '8px 0' }}>{entry.title}</h4>}
