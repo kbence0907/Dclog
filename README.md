@@ -100,29 +100,38 @@ Neked csak annyi a dolgod, hogy magát az üres adatbázist (`dclog` séma) és
 egy hozzáférő felhasználót létrehozz a MySQL szerveren — a táblákat már nem
 kell.
 
-### 4. A bot indítása
+### 4. Indítás
 
-```bash
-npm run bot:dev
-```
-
-Ennyi. Induláskor a bot magától:
-1. létrehozza/frissíti az adatbázis táblákat (`prisma migrate deploy`),
-2. regisztrálja a slash parancsokat Discordnál,
-3. bejelentkezik.
-
-Nincs szükség külön `npm run bot:deploy-commands` lépésre — az induláskor
-automatikusan megtörténik (akkor is, ha új parancsot adunk hozzá és
-frissíted a kódot). Ez olyan hosztingpaneleknél is elég, ahol csak egy
-Start/Stop gombod van, parancsot kézzel nem tudsz futtatni: csak az `.env`
-változókat kell beállítanod, a többi automatikus.
-
-Ha a hosztingpaneled csak rövid (pl. max 16 karakteres) fájlnevet fogad el
-indítófájlnak, a `packages/bot/src/index.js` nem fér bele — használd
-helyette a gyökérben lévő `bot.js`-t, ami csak áthívja a valódit:
+**Hosztingpaneleken (Pterodactyl/Pelican-szerű, ahol csak egy Start/Stop
+gombod és egy kiosztott portod van):**
 
 ```
 node bot.js
+```
+
+Ez az **egyetlen** parancs mindent elindít, egy processzben:
+1. létrehozza/frissíti az adatbázis táblákat (`prisma migrate deploy`),
+2. regisztrálja a slash parancsokat Discordnál,
+3. bejelentkezik a Discord botként,
+4. lebuildeli (ha még nincs meg) és elindítja a weboldalt is, ugyanabban a
+   folyamatban, a panel kiosztott portján.
+
+A weboldal alapértelmezetten a **40008**-as porton fut. Ha a panelen más
+port van kiosztva, állítsd be `PORT` vagy `WEB_PORT` környezeti változóként
+— akkor azt használja 40008 helyett.
+
+Ha a bot bejelentkezése bármiért sikertelen (rossz token, átmeneti Discord
+hiba), az csak logolva lesz, a folyamat és a weboldal **nem áll le** miatta.
+
+Ha a hosztingpaneled csak rövid (pl. max 16 karakteres) fájlnevet fogad el
+indítófájlnak: `bot.js` pontosan 6 karakter, tehát ez már eleve megfelel.
+
+**Helyi fejlesztéshez** (két külön folyamat, külön porton, gyorsabb
+újratöltéssel):
+
+```bash
+npm run bot:dev    # csak a bot
+npm run web:dev     # csak a weboldal, http://localhost:3000
 ```
 
 A szerveren belül:
@@ -151,14 +160,16 @@ csatornába, ahonnan indítottad — nagy (100 000+ üzenetes) csatornáknál ez
 akár órákig is eltarthat, de megszakítás után onnan folytatja, ahol
 abbamaradt.
 
-### 5. Weboldal
+### 5. Weboldal használata
 
-```bash
-npm run web:dev
-```
-
-Nyisd meg a `http://localhost:3000` címet, jelentkezz be Discorddal, és
+Nyisd meg a panel/domain címét (pl. `http://host-voidhost.hu:40008`,
+helyi fejlesztésben `http://localhost:3000`), jelentkezz be Discorddal, és
 keress rá bármilyen azonosítóra vagy karakternévre.
+
+Ha frissíted a `packages/web` kódját egy már futó, egyprocesszes (`node
+bot.js`) telepítésen, a weboldal nem buildeli újra magát automatikusan —
+töröld a `packages/web/.next` mappát és indítsd újra, hogy a következő
+indítás lebuildelje az új verziót.
 
 ## Skálázás / további bővítési pontok
 

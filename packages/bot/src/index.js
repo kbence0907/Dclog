@@ -48,4 +48,9 @@ client.once('ready', async () => {
 client.on('messageCreate', onMessageCreate);
 client.on('interactionCreate', (interaction) => onInteractionCreate(interaction, commands));
 
-client.login(process.env.DISCORD_TOKEN);
+// Without this .catch, a login failure (bad token, Discord API hiccup,
+// network issue) becomes an unhandled rejection that crashes the whole
+// process — including the web UI, since both now run together in bot.js.
+client.login(process.env.DISCORD_TOKEN).catch((err) => {
+  console.error('❌ Discord bejelentkezés sikertelen. Ellenőrizd a DISCORD_TOKEN értékét:', err.message);
+});
